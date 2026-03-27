@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0f1117">
+  <meta name="description" content="Tagihku - Catat & tagih pengeluaran marketing">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Tagihku">
+  <link rel="manifest" href="manifest.json">
+  <title>Tagihku</title>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════
+     LOADING SCREEN
+     ═══════════════════════════════════════════ -->
+<div id="loading-screen">
+  <div class="loading-logo">💰</div>
+  <div style="font-size:24px;font-weight:800;background:linear-gradient(135deg,#4f8ef7,#6c63ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">Tagihku</div>
+  <div class="loading-text" id="loading-text">Memuat aplikasi...</div>
+  <button class="loading-retry" id="loading-retry" onclick="forceResetSession()">↩ Kembali ke Login</button>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     AUTH SCREEN
+     ═══════════════════════════════════════════ -->
+<div id="auth-screen">
+  <div class="auth-logo">
+    <span class="auth-logo-icon">💰</span>
+    <div class="auth-logo-text">Tagihku</div>
+    <div class="auth-logo-sub">Catat. Tagih. Terima.</div>
+  </div>
+
+  <div class="auth-card">
+    <div class="auth-tabs">
+      <div class="auth-tab active" id="tab-login"    onclick="switchAuthTab('login')">Masuk</div>
+      <div class="auth-tab"        id="tab-register" onclick="switchAuthTab('register')">Daftar</div>
+    </div>
+
+    <!-- Form Login -->
+    <div id="form-login">
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input type="email" class="form-input" id="login-email" placeholder="nama@email.com" autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <div class="pw-wrap">
+          <input type="password" class="form-input" id="login-pass" placeholder="••••••••"
+                 autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+          <button type="button" class="pw-toggle" onclick="togglePw('login-pass',this)">👁️</button>
+        </div>
+      </div>
+      <button class="btn btn-primary" id="btn-login" onclick="doLogin()">Masuk</button>
+      <div style="text-align:center;margin-top:14px">
+        <span style="font-size:12px;color:var(--text3);cursor:pointer" onclick="doForgotPassword()">Lupa password?</span>
+      </div>
+    </div>
+
+    <!-- Form Daftar -->
+    <div id="form-register" style="display:none">
+      <div class="form-group">
+        <label class="form-label">Nama Lengkap</label>
+        <input type="text" class="form-input" id="reg-name" placeholder="Nama kamu">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input type="email" class="form-input" id="reg-email" placeholder="nama@email.com" autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <div class="pw-wrap">
+          <input type="password" class="form-input" id="reg-pass" placeholder="Min. 6 karakter" autocomplete="new-password">
+          <button type="button" class="pw-toggle" onclick="togglePw('reg-pass',this)">👁️</button>
+        </div>
+      </div>
+      <button class="btn btn-primary" id="btn-register" onclick="doRegister()">Buat Akun</button>
+    </div>
+  </div>
+
+  <div style="text-align:center;margin-top:20px;font-size:12px;color:var(--text3);padding:0 8px">
+    Data tersimpan aman di cloud Supabase.<br>Bisa diakses dari perangkat manapun. 🔒
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     MAIN APP
+     ═══════════════════════════════════════════ -->
+<div id="app">
+
+  <!-- Topbar -->
+  <div class="topbar">
+    <div class="topbar-logo">💰 Tagihku</div>
+    <div class="topbar-actions">
+      <div class="sync-indicator" id="sync-status">
+        <div class="sync-dot" id="sync-dot"></div>
+        <span id="sync-txt">Live</span>
+      </div>
+      <div class="icon-btn" id="theme-toggle-btn" onclick="toggleTheme()" title="Ganti tema"></div>
+      <div class="icon-btn" onclick="checkOverdue()">🔔</div>
+      <div class="icon-btn" onclick="exportData()">📤</div>
+    </div>
+  </div>
+
+  <!-- Konten Halaman -->
+  <div class="content">
+
+    <!-- Halaman: Home -->
+    <div class="page active" id="page-home">
+      <div class="greeting">
+        <div class="greeting-small">Selamat datang kembali 👋</div>
+        <div class="greeting-name">Halo, <span id="user-name-display">Marketing</span></div>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card accent">
+          <div class="stat-label">Total Piutang</div>
+          <div class="stat-value" id="stat-total">Rp 0</div>
+          <div class="stat-sub"  id="stat-total-count">0 transaksi</div>
+        </div>
+        <div class="stat-card red">
+          <div class="stat-label">Overdue</div>
+          <div class="stat-value" id="stat-overdue">Rp 0</div>
+          <div class="stat-sub"  id="stat-overdue-count">0 tagihan</div>
+        </div>
+        <div class="stat-card amber">
+          <div class="stat-label">Belum Ditagih</div>
+          <div class="stat-value" id="stat-belum">Rp 0</div>
+          <div class="stat-sub"  id="stat-belum-count">0 item</div>
+        </div>
+        <div class="stat-card green">
+          <div class="stat-label">Lunas (bln ini)</div>
+          <div class="stat-value" id="stat-lunas">Rp 0</div>
+          <div class="stat-sub"  id="stat-lunas-count">0 transaksi</div>
+        </div>
+      </div>
+      <div id="overdue-alerts"></div>
+      <div class="section-header">
+        <div class="section-title">Transaksi Terbaru</div>
+        <div class="section-action" onclick="showPage('tagihan')">Lihat semua →</div>
+      </div>
+      <div id="recent-list"></div>
+    </div>
+
+    <!-- Halaman: Tagihan -->
+    <div class="page" id="page-tagihan">
+      <div style="padding-top:16px">
+        <div class="search-box">
+          <input type="text" id="search-input" placeholder="Cari konsumen atau item..." oninput="renderTagihan()">
+        </div>
+        <div class="filter-tabs">
+          <div class="filter-tab active" data-filter="all"     onclick="setFilter('all')">Semua</div>
+          <div class="filter-tab"        data-filter="belum"   onclick="setFilter('belum')">Belum Ditagih</div>
+          <div class="filter-tab"        data-filter="ditagih" onclick="setFilter('ditagih')">Sudah Ditagih</div>
+          <div class="filter-tab"        data-filter="lunas"   onclick="setFilter('lunas')">Lunas</div>
+          <div class="filter-tab"        data-filter="overdue" onclick="setFilter('overdue')">Overdue</div>
+        </div>
+        <div id="tagihan-list"></div>
+      </div>
+    </div>
+
+    <!-- Halaman: Konsumen -->
+    <div class="page" id="page-konsumen">
+      <div style="padding-top:16px">
+        <div class="search-box">
+          <input type="text" id="search-konsumen" placeholder="Cari nama konsumen..." oninput="renderKonsumen()">
+        </div>
+        <div class="section-header" style="margin-top:8px">
+          <div class="section-title" id="konsumen-count-label">Semua Konsumen</div>
+          <div class="section-action" onclick="openSheet('add-konsumen-sheet')">+ Tambah</div>
+        </div>
+        <div id="konsumen-list"></div>
+      </div>
+    </div>
+
+    <!-- Halaman: Profil -->
+    <div class="page" id="page-profil">
+      <div class="profile-header">
+        <div class="profile-avatar" id="profile-avatar">M</div>
+        <div class="profile-name"   id="profile-name-display">Marketing</div>
+        <div class="profile-role"   id="profile-role-display">Sales Marketing</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:4px" id="profile-email-display"></div>
+      </div>
+      <div class="section-header"><div class="section-title">Pengaturan</div></div>
+      <div class="menu-item" onclick="openSheet('edit-profile-sheet')">
+        <div class="menu-icon" style="background:rgba(79,142,247,.15)">👤</div>
+        <div class="menu-label">Edit Profil</div>
+        <div class="menu-arrow">›</div>
+      </div>
+      <div class="menu-item" onclick="toggleTheme()">
+        <div class="menu-icon" style="background:rgba(108,99,255,.15)" id="profil-theme-icon">🌙</div>
+        <div class="menu-label" id="profil-theme-label">Mode Gelap Aktif</div>
+        <div class="menu-arrow">›</div>
+      </div>
+      <div class="menu-item" onclick="exportData()">
+        <div class="menu-icon" style="background:rgba(34,197,94,.15)">📊</div>
+        <div class="menu-label">Export Laporan CSV</div>
+        <div class="menu-arrow">›</div>
+      </div>
+      <div class="menu-item" onclick="doLogout()">
+        <div class="menu-icon" style="background:rgba(239,68,68,.15)">🚪</div>
+        <div class="menu-label">Keluar / Logout</div>
+        <div class="menu-arrow">›</div>
+      </div>
+      <div class="section-header"><div class="section-title">Statistik</div></div>
+      <div id="profile-stats"></div>
+    </div>
+
+  </div><!-- /content -->
+
+  <!-- Bottom Navigation -->
+  <nav class="bottom-nav">
+    <div class="nav-item active" id="nav-home"     onclick="showPage('home')">    <div class="nav-icon">🏠</div><span>Home</span></div>
+    <div class="nav-item"        id="nav-tagihan"  onclick="showPage('tagihan')"> <div class="nav-icon">📋</div><span>Tagihan</span></div>
+    <div class="nav-item"        id="nav-konsumen" onclick="showPage('konsumen')"><div class="nav-icon">👥</div><span>Konsumen</span></div>
+    <div class="nav-item"        id="nav-profil"   onclick="showPage('profil')">  <div class="nav-icon">👤</div><span>Profil</span></div>
+  </nav>
+
+  <!-- FAB -->
+  <button class="fab" id="fab" onclick="openSheet('add-trx-sheet')">＋</button>
+
+</div><!-- /app -->
+
+<!-- ═══════════════════════════════════════════
+     OVERLAY
+     ═══════════════════════════════════════════ -->
+<div class="overlay" id="overlay" onclick="closeAllSheets()"></div>
+
+<!-- ═══════════════════════════════════════════
+     BOTTOM SHEETS
+     ═══════════════════════════════════════════ -->
+
+<!-- Sheet: Tambah Transaksi -->
+<div class="sheet" id="add-trx-sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-header">
+    <div class="sheet-title">✏️ Catat Pengeluaran</div>
+    <button class="sheet-close" onclick="closeAllSheets()">✕</button>
+  </div>
+  <div class="sheet-body">
+    <div class="form-group">
+      <label class="form-label">Konsumen / Klien</label>
+      <select class="form-input" id="trx-konsumen"><option value="">-- Pilih Konsumen --</option></select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Item / Deskripsi</label>
+      <input type="text" class="form-input" id="trx-item" placeholder="contoh: Materai 10.000 (5 lembar)">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Nominal (Rp)</label>
+        <input type="number" class="form-input" id="trx-nominal" placeholder="50000" min="0">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Tanggal Beli</label>
+        <input type="date" class="form-input" id="trx-tanggal">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Jatuh Tempo</label>
+      <select class="form-input" id="trx-jatuh-tempo">
+        <option value="7">7 hari</option>
+        <option value="14" selected>14 hari</option>
+        <option value="30">30 hari</option>
+        <option value="60">60 hari</option>
+        <option value="0">Tidak ada batas</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Catatan</label>
+      <textarea class="form-input" id="trx-catatan" placeholder="Catatan tambahan..."></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Foto Struk / Bukti</label>
+      <div class="photo-upload" id="photo-upload-area" onclick="document.getElementById('trx-foto').click()">📎 Tap untuk upload foto struk</div>
+      <input type="file" id="trx-foto" accept="image/*" style="display:none" onchange="handlePhotoUpload(this)">
+      <div class="photo-preview" id="photo-preview-container" style="display:none">
+        <img id="photo-preview-img" src="" alt="Preview">
+        <button class="photo-remove" onclick="removePhoto()">✕</button>
+      </div>
+    </div>
+    <button class="btn btn-primary" id="btn-save-trx" onclick="saveTrx()">💾 Simpan Transaksi</button>
+  </div>
+</div>
+
+<!-- Sheet: Detail Tagihan -->
+<div class="sheet" id="detail-trx-sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-header">
+    <div class="sheet-title" id="detail-sheet-title">📝 Detail</div>
+    <button class="sheet-close" onclick="closeAllSheets()">✕</button>
+  </div>
+  <div class="sheet-body" id="detail-trx-body"></div>
+</div>
+
+<!-- Sheet: Edit Transaksi -->
+<div class="sheet" id="edit-trx-sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-header">
+    <div class="sheet-title">✏️ Edit Transaksi</div>
+    <button class="sheet-close" onclick="closeAllSheets()">✕</button>
+  </div>
+  <div class="sheet-body">
+    <input type="hidden" id="et-id">
+    <div class="form-group">
+      <label class="form-label">Konsumen / Klien</label>
+      <select class="form-input" id="et-konsumen"><option value="">-- Pilih Konsumen --</option></select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Item / Deskripsi</label>
+      <input type="text" class="form-input" id="et-item" placeholder="contoh: Materai 10.000 (5 lembar)">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Nominal (Rp)</label>
+        <input type="number" class="form-input" id="et-nominal" placeholder="50000" min="0">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Tanggal Beli</label>
+        <input type="date" class="form-input" id="et-tanggal">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Jatuh Tempo</label>
+      <select class="form-input" id="et-jatuh-tempo">
+        <option value="7">7 hari</option><option value="14">14 hari</option>
+        <option value="30">30 hari</option><option value="60">60 hari</option>
+        <option value="0">Tidak ada batas</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Catatan</label>
+      <textarea class="form-input" id="et-catatan" placeholder="Catatan tambahan..."></textarea>
+    </div>
+    <button class="btn btn-primary" id="btn-update-trx" onclick="updateTrx()">💾 Simpan Perubahan</button>
+  </div>
+</div>
+
+<!-- Sheet: Tambah Konsumen -->
+<div class="sheet" id="add-konsumen-sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-header">
+    <div class="sheet-title">👤 Tambah Konsumen</div>
+    <button class="sheet-close" onclick="closeAllSheets()">✕</button>
+  </div>
+  <div class="sheet-body">
+    <div class="form-group">
+      <label class="form-label">Nama Konsumen / Perusahaan</label>
+      <input type="text" class="form-input" id="k-nama" placeholder="PT. Maju Jaya / Pak Budi">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Telepon</label>
+        <input type="tel" class="form-input" id="k-telp" placeholder="08xxx">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Emoji / Ikon</label>
+        <input type="text" class="form-input" id="k-emoji" placeholder="🏢" maxlength="2">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Catatan / PIC</label>
+      <input type="text" class="form-input" id="k-catatan" placeholder="PIC: Bu Dewi, ext 123">
+    </div>
+    <button class="btn btn-primary" id="btn-save-konsumen" onclick="saveKonsumen()">💾 Simpan Konsumen</button>
+  </div>
+</div>
+
+<!-- Sheet: Edit Konsumen -->
+<div class="sheet" id="edit-konsumen-sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-header">
+    <div class="sheet-title">✏️ Edit Konsumen</div>
+    <button class="sheet-close" onclick="closeAllSheets()">✕</button>
+  </div>
+  <div class="sheet-body">
+    <input type="hidden" id="ek-id">
+    <div class="form-group">
+      <label class="form-label">Nama Konsumen / Perusahaan</label>
+      <input type="text" class="form-input" id="ek-nama" placeholder="PT. Maju Jaya / Pak Budi">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Telepon</label>
+        <input type="tel" class="form-input" id="ek-telp" placeholder="08xxx">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Emoji / Ikon</label>
+        <input type="text" class="form-input" id="ek-emoji" placeholder="🏢" maxlength="2">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Catatan / PIC</label>
+      <input type="text" class="form-input" id="ek-catatan" placeholder="PIC: Bu Dewi, ext 123">
+    </div>
+    <button class="btn btn-primary" id="btn-update-konsumen" onclick="updateKonsumen()">💾 Simpan Perubahan</button>
+  </div>
+</div>
+
+<!-- Sheet: Edit Profil -->
+<div class="sheet" id="edit-profile-sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-header">
+    <div class="sheet-title">✏️ Edit Profil</div>
+    <button class="sheet-close" onclick="closeAllSheets()">✕</button>
+  </div>
+  <div class="sheet-body">
+    <div class="form-group">
+      <label class="form-label">Nama Lengkap</label>
+      <input type="text" class="form-input" id="profile-input-name" placeholder="Nama lengkap">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Divisi / Jabatan</label>
+      <input type="text" class="form-input" id="profile-input-role" placeholder="Sales Marketing">
+    </div>
+    <button class="btn btn-primary" onclick="saveProfile()">💾 Simpan Profil</button>
+  </div>
+</div>
+
+<!-- Toast Notification -->
+<div class="toast" id="toast"></div>
+
+
+<!-- ═══════════════════════════════════════════
+     SCRIPTS
+     Urutan load penting:
+     1. Supabase SDK (eksternal)
+     2. config.js  — client & state
+     3. utils.js   — helper functions
+     4. theme.js   — tema UI
+     5. ui.js      — screen, sheet, navigasi
+     6. db.js      — fetch & CRUD database
+     7. render.js  — render halaman
+     8. auth.js    — auth & startup (terakhir)
+     ═══════════════════════════════════════════ -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/config.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/theme.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/db.js"></script>
+<script src="js/render.js"></script>
+<script src="js/auth.js"></script>
+
+<script>
+  // Terapkan tema sebelum render apapun (hindari flash)
+  initTheme();
+
+  // Register Service Worker
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' })
+      .then(reg => {
+        reg.addEventListener('updatefound', () => {
+          const sw = reg.installing;
+          sw.addEventListener('statechange', () => {
+            if (sw.state === 'installed' && navigator.serviceWorker.controller) {
+              sw.postMessage({ type: 'SKIP_WAITING' });
+            }
+          });
+        });
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          window.location.reload();
+        });
+      })
+      .catch(() => {});
+  }
+</script>
+
+</body>
+</html>
