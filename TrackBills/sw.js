@@ -1,24 +1,14 @@
-// Tagihku SW — versi definitif
-// Strategi: JANGAN cache file app lokal sama sekali.
-// Hanya cache font eksternal (CDN).
-// Ini memastikan user selalu dapat versi HTML/JS terbaru tanpa perlu clear cache.
+// Tagihku Service Worker — v5
+// Strategi: network-first untuk semua file lokal, skip Supabase sepenuhnya.
 
-const CACHE = 'tagihku-v4';
-const FONT_URL = 'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap';
+const CACHE = 'tagihku-v5';
 
 self.addEventListener('install', e => {
-  // Langsung aktif, jangan tunggu tab lama tutup
-  self.skipWaiting();
-  // Cache font saja
-  e.waitUntil(
-    caches.open(CACHE).then(c =>
-      c.add(new Request(FONT_URL, {mode:'no-cors'})).catch(()=>{})
-    )
-  );
+  self.skipWaiting(); // langsung aktif
 });
 
 self.addEventListener('activate', e => {
-  // Hapus SEMUA cache lama (v1, v2, v3, dst)
+  // Hapus semua cache lama
   e.waitUntil(
     caches.keys()
       .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
@@ -36,35 +26,39 @@ self.addEventListener('fetch', e => {
 
   const url = new URL(req.url);
 
-  // ❌ JANGAN intercept request ke Supabase — biarkan langsung ke network
-  if(url.hostname.includes('supabase.co') ||
-     url.hostname.includes('supabase.io') ||
-     url.hostname.includes('jsdelivr.net')){
-    return; // browser handle sendiri
-  }
+  // ❌ Jangan intercept Supabase — biarkan langsung ke network
+  if(url.hostname.includes('supabase.co') || url.hostname.includes('supabase.io')) return;
 
-  // ❌ JANGAN cache file lokal app (index.html, sw.js, manifest.json)
-  // Selalu ambil dari network agar selalu dapat versi terbaru
-  if(url.origin === self.location.origin){
+  // ❌ Jangan intercept CDN Supabase JS
+  if(url.hostname.includes('jsdelivr.net')) return;
+
+  // ✅ File lokal (index.html, sw.js, manifest.json): network-first
+  // Selalu ambil versi terbaru, fallback ke cache kalau offline
+  if(url.origin === self.location.origin) {
     e.respondWith(
-      fetch(req, {cache:'no-store'}).catch(()=>
-        // Fallback ke cache hanya jika benar-benar offline
-        caches.match(req)
-      )
+      fetch(req, { cache: 'no-store' })
+        .then(res => {
+          // Simpan ke cache sebagai fallback offline
+          if(res.ok) {
+            caches.open(CACHE).then(c => c.put(req, res.clone()));
+          }
+          return res;
+        })
+        .catch(() => caches.match(req)) // offline fallback
     );
     return;
   }
 
-  // ✅ Untuk CDN eksternal (font, dll): cache-first
+  // ✅ Font & aset CDN eksternal: cache-first (jarang berubah)
   e.respondWith(
     caches.match(req).then(cached => {
       if(cached) return cached;
       return fetch(req).then(res => {
-        if(res.ok || res.type === 'opaque'){
+        if(res.ok || res.type === 'opaque') {
           caches.open(CACHE).then(c => c.put(req, res.clone()));
         }
         return res;
-      }).catch(()=> new Response('', {status:503}));
+      }).catch(() => new Response('', { status: 503 }));
     })
   );
 });
