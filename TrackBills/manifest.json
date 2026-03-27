@@ -1,27 +1,14 @@
 {
-  "name": "Tagihku - Catat & Tagih",
+  "name": "Tagihku",
   "short_name": "Tagihku",
-  "description": "Aplikasi catat pengeluaran marketing dan reminder tagihan ke konsumen",
+  "description": "Catat & tagih pengeluaran marketing",
   "start_url": "/",
-  "scope": "/",
   "display": "standalone",
   "background_color": "#0f1117",
   "theme_color": "#0f1117",
-  "orientation": "portrait-primary",
+  "orientation": "portrait",
   "icons": [
-    {
-      "src": "/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "maskable any"
-    },
-    {
-      "src": "/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable any"
-    }
-  ],
-  "categories": ["finance", "productivity", "business"],
-  "lang": "id"
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
 }
