@@ -2,6 +2,8 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0f1117">
 <meta name="description" content="Tagihku - Catat & tagih pengeluaran marketing">
@@ -1027,57 +1029,102 @@ function showToast(msg,type=''){
 }
 
 // ── INIT ───────────────────────────────────────
-// Use getSession() for reliable initial load — no race condition from event ordering
 let _appInitialized = false;
 
 async function startApp(user){
   if(_appInitialized) return;
+  _appInitialized = true;
   S.user = user;
   document.getElementById('loading-screen').style.display='flex';
   document.querySelector('.loading-text').textContent='Memuat data...';
   document.getElementById('auth-screen').style.display='none';
   document.getElementById('app').classList.remove('visible');
-  try{
-    await fetchAll();
-  }finally{
-    showScreen('app');
-    subscribeRT();
-    _appInitialized=true;
-  }
+  try{ await fetchAll(); }catch(_){}
+  showScreen('app');
+  subscribeRT();
 }
 
-// Handle dynamic auth state changes (login/logout after page load)
+function resetToAuth(){
+  _appInitialized = false;
+  S.user=null; S.transactions=[]; S.konsumens=[]; S.profile={name:'Marketing',role:'Sales Marketing'};
+  showScreen('auth');
+}
+
+// Handle login/logout events fired AFTER initial load
 sb.auth.onAuthStateChange(async(event,session)=>{
-  if(event==='SIGNED_IN'){
-    if(_appInitialized) return;
+  if(event==='SIGNED_IN' && !_appInitialized){
     await startApp(session.user);
     ['btn-login','btn-register'].forEach(id=>{const b=document.getElementById(id);if(b){b.disabled=false;b.innerHTML=id==='btn-login'?'Masuk':'Buat Akun';}});
   }else if(event==='SIGNED_OUT'){
-    _appInitialized=false;
-    S.user=null; S.transactions=[]; S.konsumens=[]; S.profile={name:'Marketing',role:'Sales Marketing'};
-    showScreen('auth');
+    resetToAuth();
   }
 });
 
-// Apply theme immediately before anything renders
+// Apply theme immediately
 initTheme();
 
-// On page load: check session directly (deterministic, no event race condition)
+// ── STARTUP — getSession() dengan hard timeout 6 detik ──
+// Supabase getSession() bisa hang selamanya kalau token refresh gagal/lambat.
+// Kalau timeout, paksa signOut lokal (hapus token dari storage tanpa network call)
+// lalu tampilkan halaman login. User tinggal login ulang, tidak perlu hapus cookies.
 (async()=>{
   try{
-    const{data:{session}}=await sb.auth.getSession();
+    let session = null;
+
+    // Race getSession vs timeout
+    const result = await Promise.race([
+      sb.auth.getSession(),
+      new Promise(resolve => setTimeout(() => resolve({_timeout:true}), 6000))
+    ]);
+
+    if(result._timeout){
+      // Token refresh hang — clear session locally (no network needed) lalu ke login
+      console.warn('Tagihku: session check timeout, clearing local auth');
+      try{ await sb.auth.signOut({scope:'local'}); }catch(_){}
+      showScreen('auth');
+      showToast('Sesi habis, silakan login kembali','error');
+      return;
+    }
+
+    if(result.error){
+      // getSession error (misal token corrupt)
+      console.warn('Tagihku: getSession error:', result.error.message);
+      try{ await sb.auth.signOut({scope:'local'}); }catch(_){}
+      showScreen('auth');
+      return;
+    }
+
+    session = result.data?.session;
+
     if(session?.user){
       await startApp(session.user);
     }else{
       showScreen('auth');
     }
   }catch(e){
-    console.error('Init error:',e);
+    console.error('Tagihku: init error:', e);
+    try{ await sb.auth.signOut({scope:'local'}); }catch(_){}
     showScreen('auth');
   }
 })();
 
-if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+// Register SW — gunakan updateViaCache:'none' agar browser selalu fetch SW terbaru
+// tanpa user harus clear cache/cookies
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(reg=>{
+    // Paksa SW baru langsung aktif tanpa nunggu tab ditutup
+    reg.addEventListener('updatefound',()=>{
+      const newSW = reg.installing;
+      newSW.addEventListener('statechange',()=>{
+        if(newSW.state==='installed' && navigator.serviceWorker.controller){
+          // Ada update — reload otomatis agar user dapat versi terbaru
+          navigator.serviceWorker.addEventListener('controllerchange',()=>window.location.reload());
+          newSW.postMessage({type:'SKIP_WAITING'});
+        }
+      });
+    });
+  }).catch(()=>{});
+}
 </script>
 </body>
 </html>
