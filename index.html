@@ -21,7 +21,24 @@
   --text:#f1f5f9;--text2:#94a3b8;--text3:#64748b;
   --font:'Plus Jakarta Sans',sans-serif;--mono:'JetBrains Mono',monospace;
   --radius:14px;--radius-sm:8px;
+  --shadow:rgba(0,0,0,0.3);
 }
+:root.light {
+  --bg:#f0f4ff;--bg2:#ffffff;--bg3:#e8edf8;--card:#ffffff;
+  --border:rgba(0,0,0,0.08);--border2:rgba(0,0,0,0.14);
+  --text:#0f172a;--text2:#334155;--text3:#64748b;
+  --shadow:rgba(0,0,0,0.08);
+}
+:root.light body{background:var(--bg)}
+:root.light .topbar{background:rgba(240,244,255,0.92);border-bottom-color:var(--border)}
+:root.light .bottom-nav{background:rgba(255,255,255,0.97)}
+:root.light .sheet{background:var(--bg2)}
+:root.light #auth-screen::before{background:radial-gradient(ellipse 80% 60% at 50% 0%,rgba(79,142,247,0.10),transparent)}
+:root.light #app::before{background:radial-gradient(ellipse 60% 50% at 50% -10%,rgba(79,142,247,0.07),transparent)}
+:root.light .icon-btn{background:var(--bg3);border-color:var(--border2)}
+:root.light .icon-btn:hover{background:var(--bg);border-color:var(--accent)}
+:root.light .overlay{background:rgba(0,0,0,0.4)}
+:root.light #loading-screen{background:var(--bg)}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html{font-size:16px;scroll-behavior:smooth}
 body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
@@ -209,6 +226,19 @@ textarea.form-input{resize:none;min-height:80px}
 ::-webkit-scrollbar{width:4px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+/* PASSWORD TOGGLE */
+.pw-wrap{position:relative}
+.pw-wrap .form-input{padding-right:44px}
+.pw-toggle{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text3);font-size:18px;line-height:1;padding:4px;transition:color .2s}
+.pw-toggle:hover{color:var(--text)}
+
+/* THEME TOGGLE */
+.theme-btn{font-size:16px}
+
+/* EDIT FORM IN SHEET */
+.edit-form-section{background:var(--bg3);border-radius:var(--radius-sm);padding:16px;margin-bottom:16px}
+.edit-form-section .form-group:last-child{margin-bottom:0}
 </style>
 </head>
 <body>
@@ -234,14 +264,14 @@ textarea.form-input{resize:none;min-height:80px}
     </div>
     <div id="form-login">
       <div class="form-group"><label class="form-label">Email</label><input type="email" class="form-input" id="login-email" placeholder="nama@email.com" autocomplete="email"></div>
-      <div class="form-group"><label class="form-label">Password</label><input type="password" class="form-input" id="login-pass" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></div>
+      <div class="form-group"><label class="form-label">Password</label><div class="pw-wrap"><input type="password" class="form-input" id="login-pass" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"><button type="button" class="pw-toggle" onclick="togglePw('login-pass',this)" title="Tampilkan/sembunyikan password">👁️</button></div></div>
       <button class="btn btn-primary" id="btn-login" onclick="doLogin()">Masuk</button>
       <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:var(--text3);cursor:pointer" onclick="doForgotPassword()">Lupa password?</span></div>
     </div>
     <div id="form-register" style="display:none">
       <div class="form-group"><label class="form-label">Nama Lengkap</label><input type="text" class="form-input" id="reg-name" placeholder="Nama kamu"></div>
       <div class="form-group"><label class="form-label">Email</label><input type="email" class="form-input" id="reg-email" placeholder="nama@email.com" autocomplete="email"></div>
-      <div class="form-group"><label class="form-label">Password</label><input type="password" class="form-input" id="reg-pass" placeholder="Min. 6 karakter" autocomplete="new-password"></div>
+      <div class="form-group"><label class="form-label">Password</label><div class="pw-wrap"><input type="password" class="form-input" id="reg-pass" placeholder="Min. 6 karakter" autocomplete="new-password"><button type="button" class="pw-toggle" onclick="togglePw('reg-pass',this)" title="Tampilkan/sembunyikan password">👁️</button></div></div>
       <button class="btn btn-primary" id="btn-register" onclick="doRegister()">Buat Akun</button>
     </div>
   </div>
@@ -256,6 +286,7 @@ textarea.form-input{resize:none;min-height:80px}
     <div class="topbar-logo">💰 Tagihku</div>
     <div class="topbar-actions">
       <div class="sync-indicator" id="sync-status"><div class="sync-dot" id="sync-dot"></div><span id="sync-txt">Live</span></div>
+      <div class="icon-btn theme-btn" id="theme-toggle-btn" onclick="toggleTheme()" title="Ganti tema"></div>
       <div class="icon-btn" onclick="checkOverdue()">🔔</div>
       <div class="icon-btn" onclick="exportData()">📤</div>
     </div>
@@ -310,12 +341,11 @@ textarea.form-input{resize:none;min-height:80px}
       </div>
       <div class="section-header"><div class="section-title">Pengaturan</div></div>
       <div class="menu-item" onclick="openSheet('edit-profile-sheet')"><div class="menu-icon" style="background:rgba(79,142,247,.15)">👤</div><div class="menu-label">Edit Profil</div><div class="menu-arrow">›</div></div>
+      <div class="menu-item" onclick="toggleTheme()"><div class="menu-icon" style="background:rgba(108,99,255,.15)" id="profil-theme-icon">🌙</div><div class="menu-label" id="profil-theme-label">Mode Gelap Aktif</div><div class="menu-arrow">›</div></div>
       <div class="menu-item" onclick="exportData()"><div class="menu-icon" style="background:rgba(34,197,94,.15)">📊</div><div class="menu-label">Export Laporan CSV</div><div class="menu-arrow">›</div></div>
       <div class="menu-item" onclick="doLogout()"><div class="menu-icon" style="background:rgba(239,68,68,.15)">🚪</div><div class="menu-label">Keluar / Logout</div><div class="menu-arrow">›</div></div>
       <div class="section-header"><div class="section-title">Statistik</div></div>
       <div id="profile-stats"></div>
-      <div class="section-header"><div class="section-title">Zona Bahaya</div></div>
-      <button class="btn btn-danger" onclick="confirmReset()">🗑️ Hapus Semua Data Saya</button>
     </div>
   </div>
 
@@ -361,6 +391,24 @@ textarea.form-input{resize:none;min-height:80px}
   <div class="sheet-body" id="edit-trx-body"></div>
 </div>
 
+<!-- EDIT TRANSAKSI FORM SHEET -->
+<div class="sheet" id="edit-trx-form-sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-header"><div class="sheet-title">✏️ Edit Transaksi</div><button class="sheet-close" onclick="closeAllSheets()">✕</button></div>
+  <div class="sheet-body">
+    <input type="hidden" id="et-id">
+    <div class="form-group"><label class="form-label">Konsumen / Klien</label><select class="form-input" id="et-konsumen"><option value="">-- Pilih Konsumen --</option></select></div>
+    <div class="form-group"><label class="form-label">Item / Deskripsi</label><input type="text" class="form-input" id="et-item" placeholder="contoh: Materai 10.000 (5 lembar)"></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Nominal (Rp)</label><input type="number" class="form-input" id="et-nominal" placeholder="50000" min="0"></div>
+      <div class="form-group"><label class="form-label">Tanggal Beli</label><input type="date" class="form-input" id="et-tanggal"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Jatuh Tempo</label><select class="form-input" id="et-jatuh-tempo"><option value="7">7 hari</option><option value="14">14 hari</option><option value="30">30 hari</option><option value="60">60 hari</option><option value="0">Tidak ada batas</option></select></div>
+    <div class="form-group"><label class="form-label">Catatan</label><textarea class="form-input" id="et-catatan" placeholder="Catatan tambahan..."></textarea></div>
+    <button class="btn btn-primary" id="btn-update-trx" onclick="updateTrx()">💾 Simpan Perubahan</button>
+  </div>
+</div>
+
 <!-- ADD KONSUMEN SHEET -->
 <div class="sheet" id="add-konsumen-sheet">
   <div class="sheet-handle"></div>
@@ -373,6 +421,22 @@ textarea.form-input{resize:none;min-height:80px}
     </div>
     <div class="form-group"><label class="form-label">Catatan / PIC</label><input type="text" class="form-input" id="k-catatan" placeholder="PIC: Bu Dewi, ext 123"></div>
     <button class="btn btn-primary" id="btn-save-konsumen" onclick="saveKonsumen()">💾 Simpan Konsumen</button>
+  </div>
+</div>
+
+<!-- EDIT KONSUMEN SHEET -->
+<div class="sheet" id="edit-konsumen-sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-header"><div class="sheet-title">✏️ Edit Konsumen</div><button class="sheet-close" onclick="closeAllSheets()">✕</button></div>
+  <div class="sheet-body">
+    <input type="hidden" id="ek-id">
+    <div class="form-group"><label class="form-label">Nama Konsumen / Perusahaan</label><input type="text" class="form-input" id="ek-nama" placeholder="PT. Maju Jaya / Pak Budi"></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Telepon</label><input type="tel" class="form-input" id="ek-telp" placeholder="08xxx"></div>
+      <div class="form-group"><label class="form-label">Emoji / Ikon</label><input type="text" class="form-input" id="ek-emoji" placeholder="🏢" maxlength="2"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Catatan / PIC</label><input type="text" class="form-input" id="ek-catatan" placeholder="PIC: Bu Dewi, ext 123"></div>
+    <button class="btn btn-primary" id="btn-update-konsumen" onclick="updateKonsumen()">💾 Simpan Perubahan</button>
   </div>
 </div>
 
@@ -417,7 +481,106 @@ const iconBg   = (s,ov)=>ov?'background:rgba(239,68,68,.15)':{belum:'background:
 const statusEm = (s,ov)=>ov?'🔴':({belum:'🟡',ditagih:'🔵',lunas:'🟢'}[s]||'🟡');
 const jtDate   = t=>{ if(!t.jatuh_tempo||t.jatuh_tempo==0)return null; const d=new Date(t.tanggal); d.setDate(d.getDate()+parseInt(t.jatuh_tempo)); return d.toISOString().slice(0,10); };
 
-// ── SYNC STATUS ────────────────────────────────
+// ── PASSWORD TOGGLE ────────────────────────────
+function togglePw(inputId, btn){
+  const inp=document.getElementById(inputId);
+  if(!inp)return;
+  const show=inp.type==='password';
+  inp.type=show?'text':'password';
+  btn.textContent=show?'🙈':'👁️';
+  btn.title=show?'Sembunyikan password':'Tampilkan password';
+}
+
+// ── THEME ──────────────────────────────────────
+function initTheme(){
+  const saved=localStorage.getItem('tagihku-theme')||'dark';
+  applyTheme(saved);
+}
+function applyTheme(theme){
+  document.documentElement.classList.toggle('light',theme==='light');
+  const isLight=theme==='light';
+  const btn=document.getElementById('theme-toggle-btn');
+  if(btn)btn.textContent=isLight?'🌙':'☀️';
+  const pi=document.getElementById('profil-theme-icon');
+  const pl=document.getElementById('profil-theme-label');
+  if(pi)pi.textContent=isLight?'☀️':'🌙';
+  if(pl)pl.textContent=isLight?'Mode Terang Aktif':'Mode Gelap Aktif';
+  localStorage.setItem('tagihku-theme',theme);
+  // Update theme-color meta
+  const mc=document.querySelector('meta[name="theme-color"]');
+  if(mc)mc.content=isLight?'#f0f4ff':'#0f1117';
+}
+function toggleTheme(){
+  const cur=localStorage.getItem('tagihku-theme')||'dark';
+  applyTheme(cur==='dark'?'light':'dark');
+  showToast(cur==='dark'?'☀️ Mode terang aktif':'🌙 Mode gelap aktif','success');
+}
+
+// ── EDIT KONSUMEN ──────────────────────────────
+function openEditKonsumen(id){
+  const k=S.konsumens.find(x=>x.id===id);if(!k)return;
+  document.getElementById('ek-id').value=id;
+  document.getElementById('ek-nama').value=k.nama||'';
+  document.getElementById('ek-telp').value=k.telp||'';
+  document.getElementById('ek-emoji').value=k.emoji||'';
+  document.getElementById('ek-catatan').value=k.catatan||'';
+  closeAllSheets();
+  setTimeout(()=>openSheet('edit-konsumen-sheet'),200);
+}
+async function updateKonsumen(){
+  const id=document.getElementById('ek-id').value;
+  const nama=document.getElementById('ek-nama').value.trim();
+  if(!nama){showToast('Isi nama konsumen!','error');return;}
+  const btn=document.getElementById('btn-update-konsumen');
+  btn.innerHTML='<span class="spinner"></span> Menyimpan...';btn.disabled=true;
+  const upd={nama,telp:document.getElementById('ek-telp').value.trim(),emoji:document.getElementById('ek-emoji').value.trim(),catatan:document.getElementById('ek-catatan').value.trim()};
+  const{error}=await sb.from('konsumens').update(upd).eq('id',id);
+  btn.innerHTML='💾 Simpan Perubahan';btn.disabled=false;
+  if(error){showToast('Gagal simpan: '+error.message,'error');return;}
+  const i=S.konsumens.findIndex(k=>k.id===id);if(i!==-1)Object.assign(S.konsumens[i],upd);
+  closeAllSheets();renderKonsumen();
+  showToast('✅ Konsumen diperbarui!','success');
+}
+
+// ── EDIT TRANSAKSI FORM ────────────────────────
+function openEditTrxForm(id){
+  const t=S.transactions.find(x=>x.id===id);if(!t)return;
+  document.getElementById('et-id').value=id;
+  document.getElementById('et-item').value=t.item||'';
+  document.getElementById('et-nominal').value=t.nominal||'';
+  document.getElementById('et-tanggal').value=t.tanggal||'';
+  document.getElementById('et-catatan').value=t.catatan||'';
+  // Populate konsumen select
+  const sel=document.getElementById('et-konsumen');
+  sel.innerHTML='<option value="">-- Pilih Konsumen --</option>';
+  S.konsumens.forEach(k=>{const o=document.createElement('option');o.value=k.id;o.textContent=(k.emoji||'👤')+' '+k.nama;sel.appendChild(o);});
+  sel.value=t.konsumen_id||'';
+  // Set jatuh tempo
+  const jt=document.getElementById('et-jatuh-tempo');
+  jt.value=String(t.jatuh_tempo||14);
+  closeAllSheets();
+  setTimeout(()=>openSheet('edit-trx-form-sheet'),200);
+}
+async function updateTrx(){
+  const id=document.getElementById('et-id').value;
+  const kid=document.getElementById('et-konsumen').value;
+  const item=document.getElementById('et-item').value.trim();
+  const nom=parseInt(document.getElementById('et-nominal').value);
+  const tgl=document.getElementById('et-tanggal').value;
+  if(!kid){showToast('Pilih konsumen dulu!','error');return;}
+  if(!item){showToast('Isi nama item!','error');return;}
+  if(!nom||nom<=0){showToast('Isi nominal!','error');return;}
+  if(!tgl){showToast('Isi tanggal!','error');return;}
+  const btn=document.getElementById('btn-update-trx');
+  btn.innerHTML='<span class="spinner"></span> Menyimpan...';btn.disabled=true;
+  const upd={konsumen_id:kid,item,nominal:nom,tanggal:tgl,jatuh_tempo:parseInt(document.getElementById('et-jatuh-tempo').value),catatan:document.getElementById('et-catatan').value.trim()};
+  const{error}=await sb.from('transactions').update(upd).eq('id',id);
+  btn.innerHTML='💾 Simpan Perubahan';btn.disabled=false;
+  if(error){showToast('Gagal simpan: '+error.message,'error');return;}
+  const i=S.transactions.findIndex(t=>t.id===id);if(i!==-1)Object.assign(S.transactions[i],upd);
+  closeAllSheets();renderHome();renderTagihan();
+  showToast('✅ Transaksi diperbarui!','success');
+}
 function setSyncStatus(s){
   const dot=document.getElementById('sync-dot'), txt=document.getElementById('sync-txt');
   if(!dot)return;
@@ -533,9 +696,12 @@ function closeAllSheets(){
   document.getElementById('overlay').classList.remove('open');
   document.querySelectorAll('.sheet').forEach(s=>s.classList.remove('open'));
   S.photoData=null;
-  document.getElementById('photo-preview-container').style.display='none';
-  document.getElementById('photo-upload-area').style.display='block';
-  document.getElementById('trx-foto').value='';
+  const ppc=document.getElementById('photo-preview-container');
+  const pua=document.getElementById('photo-upload-area');
+  const tf=document.getElementById('trx-foto');
+  if(ppc)ppc.style.display='none';
+  if(pua)pua.style.display='block';
+  if(tf)tf.value='';
   ['trx-item','trx-nominal','trx-catatan'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   const tc=document.getElementById('trx-konsumen');if(tc)tc.value='';
   document.getElementById('edit-sheet-title').textContent='📝 Detail Tagihan';
@@ -646,7 +812,10 @@ function openEditTrx(id){
       </div>
     </div>
     ${k.telp?`<button class="btn btn-outline" style="margin-top:8px" onclick="waReminder('${id}')">📱 Kirim WA Reminder</button>`:''}
-    <div class="btn-group" style="margin-top:10px"><button class="btn btn-danger btn-sm" onclick="deleteTrx('${id}')">🗑️ Hapus Transaksi</button></div>
+    <div class="btn-group" style="margin-top:10px">
+      <button class="btn btn-primary btn-sm" onclick="openEditTrxForm('${id}')">✏️ Edit</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteTrx('${id}')">🗑️ Hapus</button>
+    </div>
   `;
   openSheet('edit-trx-sheet');
 }
@@ -710,7 +879,10 @@ function openKonsumenDetail(id){
     ${k.catatan?`<div class="detail-row"><span class="detail-label">📝 Catatan</span><span class="detail-value">${k.catatan}</span></div>`:''}
     <div class="section-header" style="margin-top:16px"><div class="section-title">Riwayat (${ts.length})</div></div>
     ${trxHtml}
-    <div style="margin-top:12px"><button class="btn btn-danger" onclick="deleteKonsumen('${id}')">🗑️ Hapus Konsumen</button></div>
+    <div class="btn-group" style="margin-top:12px">
+      <button class="btn btn-primary btn-sm" onclick="openEditKonsumen('${id}')">✏️ Edit Konsumen</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteKonsumen('${id}')">🗑️ Hapus</button>
+    </div>
   `;
   openSheet('edit-trx-sheet');
 }
@@ -803,6 +975,13 @@ function renderProfil(){
   document.getElementById('profile-email-display').textContent=S.user?.email||'';
   const st={total:S.transactions.length,lunas:S.transactions.filter(t=>t.status==='lunas').length,nom:S.transactions.filter(t=>t.status!=='lunas').reduce((s,t)=>s+parseInt(t.nominal||0),0),k:S.konsumens.length};
   document.getElementById('profile-stats').innerHTML=`<div class="stats-grid"><div class="stat-card accent"><div class="stat-label">Total Transaksi</div><div class="stat-value" style="font-size:26px">${st.total}</div></div><div class="stat-card green"><div class="stat-label">Sudah Lunas</div><div class="stat-value" style="font-size:26px">${st.lunas}</div></div><div class="stat-card amber"><div class="stat-label">Total Piutang</div><div class="stat-value" style="font-size:18px">${fmtRp(st.nom)}</div></div><div class="stat-card"><div class="stat-label">Konsumen</div><div class="stat-value" style="font-size:26px">${st.k}</div></div></div>`;
+  // Sync theme labels
+  const cur=localStorage.getItem('tagihku-theme')||'dark';
+  const isLight=cur==='light';
+  const pi=document.getElementById('profil-theme-icon');
+  const pl=document.getElementById('profil-theme-label');
+  if(pi)pi.textContent=isLight?'☀️':'🌙';
+  if(pl)pl.textContent=isLight?'Mode Terang Aktif':'Mode Gelap Aktif';
 }
 
 function renderAll(){renderHome();renderTagihan();renderKonsumen();renderProfil();}
@@ -840,22 +1019,40 @@ function showToast(msg,type=''){
 }
 
 // ── INIT ───────────────────────────────────────
+let _appInitialized = false;
 sb.auth.onAuthStateChange(async(event,session)=>{
+  // Ignore token refresh & password recovery events to prevent stuck loading
+  if(event==='TOKEN_REFRESHED'||event==='PASSWORD_RECOVERY') return;
+  if(event==='SIGNED_OUT'){
+    _appInitialized=false;
+    S.user=null; S.transactions=[]; S.konsumens=[]; S.profile={name:'Marketing',role:'Sales Marketing'};
+    showScreen('auth');
+    return;
+  }
   if(session?.user){
+    // Prevent double-init if already initialized (e.g. USER_UPDATED)
+    if(_appInitialized && event==='USER_UPDATED') return;
     S.user=session.user;
-    document.getElementById('loading-screen').style.display='flex';
-    document.querySelector('.loading-text').textContent='Memuat data...';
-    document.getElementById('auth-screen').style.display='none';
-    document.getElementById('app').classList.remove('visible');
-    await fetchAll();
-    showScreen('app');
-    subscribeRT();
+    if(!_appInitialized){
+      document.getElementById('loading-screen').style.display='flex';
+      document.querySelector('.loading-text').textContent='Memuat data...';
+      document.getElementById('auth-screen').style.display='none';
+      document.getElementById('app').classList.remove('visible');
+      await fetchAll();
+      showScreen('app');
+      subscribeRT();
+      _appInitialized=true;
+    }
     // Reset auth form
     ['btn-login','btn-register'].forEach(id=>{const b=document.getElementById(id);if(b){b.disabled=false;b.innerHTML=id==='btn-login'?'Masuk':'Buat Akun';}});
   }else{
+    _appInitialized=false;
     showScreen('auth');
   }
 });
+
+// Apply theme immediately on load
+initTheme();
 
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
