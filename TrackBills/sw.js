@@ -36,7 +36,7 @@ self.addEventListener('fetch', e => {
   // Selalu ambil versi terbaru, fallback ke cache kalau offline
   if(url.origin === self.location.origin) {
     e.respondWith(
-      fetch(req, { cache: 'no-store' })
+      fetch(req)
         .then(res => {
           // Simpan ke cache sebagai fallback offline
           if(res.ok) {

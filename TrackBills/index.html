@@ -651,6 +651,8 @@ async function startApp(user) {
   // fetchAll() dijamin selesai dalam 15 detik (ada timeout di dalamnya)
   await fetchAll();
   showScreen('app');
+  const lastPage = localStorage.getItem('tagihku-last-page') || 'home';
+  showPage(lastPage);
   subscribeRT();
 }
 
@@ -672,7 +674,7 @@ sb.auth.onAuthStateChange(async (event, session) => {
     }
     return;
   }
-  if(event === 'SIGNED_IN' && !_appStarted) {
+  if((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && !_appStarted) {
     await startApp(session.user);
     // Reset form login
     const bl=document.getElementById('btn-login'), br=document.getElementById('btn-register');
@@ -748,6 +750,7 @@ function showPage(n) {
   document.getElementById('page-'+n).classList.add('active');
   document.getElementById('nav-'+n).classList.add('active');
   document.getElementById('fab').style.display = n==='profil' ? 'none' : 'flex';
+  localStorage.setItem('tagihku-last-page', n);
   ({home:renderHome, tagihan:renderTagihan, konsumen:renderKonsumen, profil:renderProfil})[n]?.();
 }
 
@@ -1213,9 +1216,13 @@ if('serviceWorker' in navigator) {
           }
         });
       });
+      let refreshing = false;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
         // SW baru aktif → reload agar user dapat file terbaru
-        window.location.reload();
+        if (!refreshing) {
+          refreshing = true;
+          window.location.reload();
+        }
       });
     })
     .catch(() => {});
