@@ -1029,7 +1029,13 @@ function showToast(msg,type=''){
 }
 
 // ── INIT ───────────────────────────────────────
+// PENTING: Gunakan HANYA onAuthStateChange, jangan campurkan getSession() di startup.
+// getSession() + onAuthStateChange berjalan bersamaan = double token refresh = conflict = stuck.
+// onAuthStateChange menembak INITIAL_SESSION sebagai event pertama (dari localStorage),
+// dilanjut token refresh di background jika perlu.
+
 let _appInitialized = false;
+let _authResolved  = false;
 
 async function startApp(user){
   if(_appInitialized) return;
@@ -1046,84 +1052,88 @@ async function startApp(user){
 
 function resetToAuth(){
   _appInitialized = false;
+  _authResolved   = false;
   S.user=null; S.transactions=[]; S.konsumens=[]; S.profile={name:'Marketing',role:'Sales Marketing'};
   showScreen('auth');
 }
 
-// Handle login/logout events fired AFTER initial load
-sb.auth.onAuthStateChange(async(event,session)=>{
-  if(event==='SIGNED_IN' && !_appInitialized){
-    await startApp(session.user);
-    ['btn-login','btn-register'].forEach(id=>{const b=document.getElementById(id);if(b){b.disabled=false;b.innerHTML=id==='btn-login'?'Masuk':'Buat Akun';}});
-  }else if(event==='SIGNED_OUT'){
-    resetToAuth();
-  }
-});
+// ── JARING PENGAMAN: Timeout 8 detik ──────────────────────────────────────
+// Kalau INITIAL_SESSION tidak muncul dalam 8 detik (token refresh hang / server down),
+// hapus token lokal tanpa network call, lalu tampilkan halaman login.
+// User tidak perlu hapus cookies — cukup login ulang.
+const _authTimeout = setTimeout(()=>{
+  if(_authResolved) return;
+  _authResolved = true;
+  console.warn('[Tagihku] Auth timeout — clearing local session');
+  // signOut scope:local → hapus token dari localStorage TANPA request jaringan
+  try{ sb.auth.signOut({scope:'local'}); }catch(_){}
+  showScreen('auth');
+  showToast('Sesi bermasalah, silakan login kembali','error');
+}, 8000);
 
-// Apply theme immediately
-initTheme();
+// ── HANDLER AUTH ──────────────────────────────────────────────────────────
+sb.auth.onAuthStateChange(async(event, session)=>{
 
-// ── STARTUP — getSession() dengan hard timeout 6 detik ──
-// Supabase getSession() bisa hang selamanya kalau token refresh gagal/lambat.
-// Kalau timeout, paksa signOut lokal (hapus token dari storage tanpa network call)
-// lalu tampilkan halaman login. User tinggal login ulang, tidak perlu hapus cookies.
-(async()=>{
-  try{
-    let session = null;
-
-    // Race getSession vs timeout
-    const result = await Promise.race([
-      sb.auth.getSession(),
-      new Promise(resolve => setTimeout(() => resolve({_timeout:true}), 6000))
-    ]);
-
-    if(result._timeout){
-      // Token refresh hang — clear session locally (no network needed) lalu ke login
-      console.warn('Tagihku: session check timeout, clearing local auth');
-      try{ await sb.auth.signOut({scope:'local'}); }catch(_){}
-      showScreen('auth');
-      showToast('Sesi habis, silakan login kembali','error');
-      return;
-    }
-
-    if(result.error){
-      // getSession error (misal token corrupt)
-      console.warn('Tagihku: getSession error:', result.error.message);
-      try{ await sb.auth.signOut({scope:'local'}); }catch(_){}
-      showScreen('auth');
-      return;
-    }
-
-    session = result.data?.session;
-
+  // INITIAL_SESSION: event pertama yang selalu ditembak Supabase saat init,
+  // baik ada session maupun tidak. Ini adalah titik masuk satu-satunya saat startup.
+  if(event==='INITIAL_SESSION'){
+    clearTimeout(_authTimeout);
+    _authResolved = true;
     if(session?.user){
       await startApp(session.user);
     }else{
       showScreen('auth');
     }
-  }catch(e){
-    console.error('Tagihku: init error:', e);
-    try{ await sb.auth.signOut({scope:'local'}); }catch(_){}
-    showScreen('auth');
+    return;
   }
-})();
 
-// Register SW — gunakan updateViaCache:'none' agar browser selalu fetch SW terbaru
-// tanpa user harus clear cache/cookies
+  // SIGNED_IN: user baru login dari form auth
+  if(event==='SIGNED_IN'){
+    clearTimeout(_authTimeout);
+    _authResolved = true;
+    if(!_appInitialized) await startApp(session.user);
+    // Reset tombol loading di form login/daftar
+    ['btn-login','btn-register'].forEach(id=>{
+      const b=document.getElementById(id);
+      if(b){b.disabled=false;b.innerHTML=id==='btn-login'?'Masuk':'Buat Akun';}
+    });
+    return;
+  }
+
+  // SIGNED_OUT: user logout atau token dihapus paksa oleh timeout
+  if(event==='SIGNED_OUT'){
+    clearTimeout(_authTimeout);
+    resetToAuth();
+  }
+});
+
+// Apply theme
+initTheme();
+
+// ── SERVICE WORKER ────────────────────────────────────────────────────────
+// Unregister semua SW lama dulu, lalu register SW baru.
+// Ini memastikan SW lama yang meng-cache file buggy tidak aktif lagi.
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(reg=>{
-    // Paksa SW baru langsung aktif tanpa nunggu tab ditutup
+  navigator.serviceWorker.getRegistrations().then(regs=>{
+    // Unregister SW lama yang mungkin masih cache file lama
+    return Promise.all(regs.map(r=>r.unregister()));
+  }).then(()=>{
+    return navigator.serviceWorker.register('sw.js',{updateViaCache:'none'});
+  }).then(reg=>{
     reg.addEventListener('updatefound',()=>{
-      const newSW = reg.installing;
-      newSW.addEventListener('statechange',()=>{
-        if(newSW.state==='installed' && navigator.serviceWorker.controller){
-          // Ada update — reload otomatis agar user dapat versi terbaru
-          navigator.serviceWorker.addEventListener('controllerchange',()=>window.location.reload());
-          newSW.postMessage({type:'SKIP_WAITING'});
+      const sw=reg.installing;
+      sw.addEventListener('statechange',()=>{
+        if(sw.state==='installed'){
+          sw.postMessage({type:'SKIP_WAITING'});
         }
       });
     });
+    // Kalau SW baru ambil alih kontrol → reload untuk dapat file terbaru
+    navigator.serviceWorker.addEventListener('controllerchange',()=>{
+      if(!_reloading){ _reloading=true; window.location.reload(); }
+    });
   }).catch(()=>{});
+  var _reloading=false;
 }
 </script>
 </body>
